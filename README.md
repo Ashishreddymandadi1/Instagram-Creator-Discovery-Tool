@@ -30,13 +30,19 @@ Each result includes:
 ```
 Brief
   ↓  LLM query understanding (topics, GEO themes, search queries)
-Creator discovery (Instagram profile URLs only; posts/reels/explore rejected)
+Tavily discovery, Instagram-constrained (include_domains=["instagram.com"])
+  ↓
+Instagram URL validation / safe candidate recovery (posts/reels rejected as
+profile URLs; a post/reel with an explicit @handle in title/snippet recovers
+to that handle's real profile)
   ↓
 Evidence collection (search snippets; targeted follow-ups for thin candidates)
   ↓
 LLM classification (evidence-only; returns per-signal scores, not the total)
   ↓
 Deterministic scoring (backend-computed, fixed weights)
+  ↓
+Relevance/confidence gate
   ↓
 Top 5–10 creators
 ```
@@ -120,8 +126,8 @@ Open `http://localhost:3000`.
 |---|---|---|
 | `ANTHROPIC_API_KEY` | **yes** | LLM provider API key |
 | `ANTHROPIC_MODEL` | no | LLM model id (default: a fast/cheap model) |
-| `SERPER_API_KEY` | **yes** | Active search provider (Google SERP via Serper.dev) |
-| `SEARCH_PROVIDERS` | no | Priority order of search providers (default: `serper`) |
+| `TAVILY_API_KEY` | **yes** | Active search provider — supports `include_domains=["instagram.com"]` for Instagram-scoped discovery |
+| `SEARCH_PROVIDERS` | no | Priority order of search providers (default: `tavily`) |
 | `CACHE_TTL_HOURS` | no | How long a cached search stays fresh (default: `24`) |
 | `MAX_SEARCH_QUERIES` | no | Cap on discovery queries per search (default: `6`) |
 | `MAX_CANDIDATES` | no | Cap on candidates collected before analysis (default: `24`) |
@@ -132,9 +138,11 @@ Open `http://localhost:3000`.
 | `DATABASE_URL` | no | SQLite path |
 | `CORS_ORIGINS` | no | Allowed frontend origins |
 
-A second search-provider implementation (Tavily) and an optional Brave/keyless
-fallback are included in the codebase and can be enabled by setting their key
-and adding them to `SEARCH_PROVIDERS` — no code changes required.
+A second search-provider implementation (Serper) and an optional Brave/keyless
+fallback are included in the codebase and remain supported through the
+`SearchProvider` abstraction, but are not enabled by default. Switch to one by
+setting its key and changing `SEARCH_PROVIDERS` (e.g. `SEARCH_PROVIDERS=serper`)
+— no code changes required.
 
 ### `frontend/.env.local`
 

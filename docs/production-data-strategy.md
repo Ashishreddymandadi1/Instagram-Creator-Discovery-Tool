@@ -7,14 +7,14 @@ document is about what changes for production.
 ## 1. Provider abstraction (already in place)
 
 `backend/app/providers/base.py` defines `SearchProvider`. Discovery, enrichment,
-scoring and the API depend on the abstraction, not on the specific active provider (currently Serper). Production adds new
+scoring and the API depend on the abstraction, not on the specific active provider (currently Tavily). Production adds new
 implementations behind the same interface:
 
 - `LicensedCreatorDataProvider` — a paid creator-database API (see §3)
 - `OfficialPlatformProvider` — Instagram Graph API where a business relationship
   and permissions exist (see §4)
-- keep `SerperSearchProvider` / `TavilySearchProvider` as a discovery-only
-  supplement
+- keep `TavilySearchProvider` (and optionally `SerperSearchProvider`) as a
+  discovery-only supplement
 
 `registry.build_providers()` already selects providers by configuration; a
 production deployment just changes `SEARCH_PROVIDERS` and adds keys.
@@ -22,9 +22,9 @@ production deployment just changes `SEARCH_PROVIDERS` and adds keys.
 ## 2. Approved search APIs
 
 For discovery (finding *candidates*), keep using licensed SERP/web-search APIs
-(Serper, Brave, Bing, Google Programmable Search) under their commercial terms,
-with attribution where required. These are fine for "who might be relevant"; they
-are **not** a system of record for profile facts.
+(Tavily, Serper, Brave, Bing, Google Programmable Search) under their commercial
+terms, with attribution where required. These are fine for "who might be
+relevant"; they are **not** a system of record for profile facts.
 
 ## 3. Licensed creator-data providers
 

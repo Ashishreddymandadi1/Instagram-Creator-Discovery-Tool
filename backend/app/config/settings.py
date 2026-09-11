@@ -36,11 +36,12 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     serper_api_key: str = ""
     brave_api_key: str = ""
-    # Currently serving via Serper. Tavily is temporarily paused (its provider
-    # implementation and tests are fully retained — switch back any time by
-    # setting this to "tavily", no code changes required). Brave / keyless
+    # Tavily is the active default — its include_domains=["instagram.com"]
+    # filter is the best fit for Instagram-scoped discovery. Serper's provider
+    # implementation and tests are fully retained; opt back in any time by
+    # setting this to "serper", no code changes required. Brave / keyless
     # remain optional — opt in by listing them here.
-    search_providers: str = "serper"
+    search_providers: str = "tavily"
 
     # ─── Discovery / ranking ─────────────────────────────────
     max_search_queries: int = 6

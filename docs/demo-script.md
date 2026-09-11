@@ -24,8 +24,8 @@ Browser at `http://localhost:3000`. Have `docs/scoring.md` open in a tab.
 ## 0:30–1:00 — Architecture (one breath)
 
 > "Next.js frontend, FastAPI backend, SQLite. The brief goes to the LLM, which turns
-> it into search criteria. We run those through Serper, keep only real Instagram
-> profile URLs, collect the search snippets as evidence, and send that evidence
+> it into search criteria. We run those through Tavily, scoped to instagram.com
+> only, keep only real Instagram profile URLs, collect the search snippets as evidence, and send that evidence
 > back to the LLM to classify each creator against a fixed rubric — and it tells us
 > which evidence items support each judgement. Then **our backend** — not the
 > LLM — computes the final score with fixed weights. Every recommendation carries
@@ -43,7 +43,7 @@ Click **Find Creators**.
 
 > "While it runs you see a staged loading indicator for the pipeline —
 > understanding the brief, discovering creators, analyzing GEO relevance,
-> ranking. It's one backend request doing all of that live (LLM + Serper), so
+> ranking. It's one backend request doing all of that live (LLM + Tavily), so
 > it takes 15–50 seconds — the LLM's batched analysis is the slower step. The stages are client-side; the backend doesn't stream
 > events, and the app only shows 'done' when the request actually returns."
 
@@ -58,7 +58,7 @@ When results land, point at the **criteria panel** first:
 
 The header says "*N candidates discovered*". If asked what that means:
 
-> "Serper discovers up to 24 valid Instagram profiles. The first 14 of those go
+> "Tavily discovers up to 24 valid Instagram profiles. The first 14 of those go
 > to the LLM for the semantic analysis and rubric scoring — that keeps one batched
 > call a reasonable size and cost. Then deterministic scoring ranks them
 > and we return the top 5–10. So it's: **up to 24 discovered → up to 14 analyzed

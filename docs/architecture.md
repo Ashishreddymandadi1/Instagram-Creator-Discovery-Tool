@@ -7,12 +7,12 @@
 | **Frontend** | `frontend/` (Next.js App Router, TS, Tailwind) | One page: brief input, a staged loading indicator (client-side representation of the pipeline — the backend does not stream stage events), criteria panel, ranked creator cards, score breakdown, evidence, refresh. Knows only `NEXT_PUBLIC_API_BASE_URL`. |
 | **API** | `backend/app/api/` (FastAPI) | `/api/health`, `/api/search`, `/api/creators/{id}`, `/api/creators/{id}/refresh`. Validates input, maps errors to safe messages. |
 | **Query Parser** | `services/query_parser.py` | Brief → `SearchCriteria` via the LLM (`prompts.build_brief_parse_messages`). Deterministic keyword fallback if the LLM is unavailable. |
-| **Discovery Providers** | `providers/` | `SearchProvider` ABC. **`SerperSearchProvider` is the currently active live provider.** `TavilySearchProvider`, `BraveSearchProvider` and `OptionalNoKeyProvider` are fully implemented, retained, and one env var away from being active (opt in via `SEARCH_PROVIDERS`). `registry.build_providers()` returns those listed *and* holding a key. |
-| **Instagram URL layer** | `providers/instagram_url.py` | Normalize to `https://www.instagram.com/<handle>/`, extract handle, reject non-profile paths (`p`, `reel(s)`, `explore`, `stories`, `accounts`, hashtags, login). |
+| **Discovery Providers** | `providers/` | `SearchProvider` ABC. **`TavilySearchProvider` is the currently active live provider**, scoping every query with `include_domains=["instagram.com"]`. `SerperSearchProvider`, `BraveSearchProvider` and `OptionalNoKeyProvider` are fully implemented, retained, and one env var away from being active (opt in via `SEARCH_PROVIDERS`). `registry.build_providers()` returns those listed *and* holding a key. |
+| **Instagram URL layer** | `providers/instagram_url.py` | Normalize to `https://www.instagram.com/<handle>/`, extract handle, reject non-profile paths (`p`, `reel(s)`, `explore`, `stories`, `accounts`, hashtags, login) as the candidate's profile URL. `is_post_or_reel_url()` + `extract_handle_from_text()` support safe recovery: a post/reel result whose title/snippet names an explicit `@handle` recovers to that handle's real profile URL, never the post/reel link itself. |
 | **Evidence Enrichment** | `services/enrichment_service.py` | Group evidence per candidate, extract a best-effort display name from titles, run a few bounded follow-up queries for thin candidates. |
 | **LLM Analysis** | `services/analysis_service.py` + `llm_service.py` | One batched call classifying a bounded set of candidates against the rubric, evidence-only. Returns `evidence_indices` per creator. Malformed rows dropped, not fatal. Output validated with `LLMCreatorAnalysis`. |
 | **Scoring** | `services/scoring_service.py` | `calculate_relevance_score(geo, topic, content, fit)` — fixed weights, clamp 0–100, round. Pure and fully unit-tested. |
-| **Deduplication** | `services/deduplication.py` | `build_candidates()` filters to valid profile URLs and groups evidence by normalized lowercase handle. Also `resolve_evidence_indices()` — validates the LLM's `evidence_indices` (drop negative / out-of-range, dedupe). |
+| **Deduplication** | `services/deduplication.py` | `build_candidates()` accepts valid profile URLs, safely recovers post/reel results with an explicit `@handle` in title/snippet, and groups evidence by normalized lowercase handle (a recovered handle merges with a directly-discovered one for the same handle). Also `resolve_evidence_indices()` — validates the LLM's `evidence_indices` (drop negative / out-of-range, dedupe). |
 | **Persistence / Cache** | `services/creator_service.py` + `database.py` | SQLite tables `creator`, `creator_evidence`, `creator_analysis`, **`analysis_evidence`**, `search_run`, `search_result`. `link_analysis_evidence()` ties an analysis to the exact evidence rows that supported it. 24h TTL cache keyed on the normalized brief. |
 | **Orchestrator** | `services/search_orchestrator.py` | Ties the pipeline together for `run_search` and `refresh_creator`; assigns `data_status`; enforces the 5–10 shortlist bounds without padding. |
 
@@ -24,7 +24,7 @@ sequenceDiagram
     participant F as Next.js
     participant A as FastAPI
     participant G as LLM
-    participant P as Serper
+    participant P as Tavily
     participant DB as SQLite
 
     U->>F: enter brief, click "Find Creators"
@@ -80,7 +80,7 @@ the analysis that produced its score.
 ## The candidate funnel
 
 ```
-Serper discovery
+Tavily discovery (include_domains=["instagram.com"])
    → up to MAX_CANDIDATES (24) valid, deduplicated Instagram candidates
      ── this is the API's `candidate_count` and the UI's "N candidates discovered"
    → first MAX_ANALYSIS_CANDIDATES (14) sent to the LLM for semantic analysis + rubric scoring
@@ -102,7 +102,7 @@ no separate "analyzed count" in the API contract for this case study; the cap is
   within a reasonable per-call token budget. If the LLM is briefly
   rate-limited, the orchestrator serves the last real results for that brief
   (labelled `cached`) rather than failing.
-- **Provider abstraction** means the active search provider (Serper) can be replaced with a licensed
+- **Provider abstraction** means the active search provider (Tavily) can be replaced with a licensed
   creator-data source without touching discovery, scoring, or the API.
 - **Analysis-scoped evidence** — provenance follows the analysis, not the creator.
 - **`data_status` everywhere** so the UI never implies freshness it doesn't have.

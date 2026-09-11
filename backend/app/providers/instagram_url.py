@@ -87,3 +87,38 @@ def normalize_instagram_url(url: str) -> str | None:
 def handle_to_url(handle: str) -> str:
     h = handle.strip().lstrip("@").lower()
     return f"https://www.instagram.com/{h}/"
+
+
+_MENTION_RE = re.compile(r"@([A-Za-z0-9._]{1,30})")
+
+
+def is_post_or_reel_url(url: str) -> bool:
+    """True if `url` is an instagram.com post/reel/tv path (not a profile,
+    not some other site). Used to gate safe handle recovery: recovery only
+    ever applies to a result whose own URL is already confirmed as
+    instagram.com — never to an arbitrary external @mention."""
+    if not url or not isinstance(url, str):
+        return False
+    candidate = url.strip()
+    if "://" not in candidate:
+        candidate = "https://" + candidate
+    try:
+        parsed = urlparse(candidate)
+    except ValueError:
+        return False
+    if _clean_host(parsed.netloc) not in {"instagram.com", "instagr.am"}:
+        return False
+    segments = [s for s in parsed.path.split("/") if s]
+    return bool(segments) and segments[0].lower() in {"p", "reel", "reels", "tv"}
+
+
+def extract_handle_from_text(*texts: str | None) -> str | None:
+    """Recover a handle from an explicit "@handle" token in title/snippet text.
+    Never guesses: returns a handle only if it appears verbatim, else None."""
+    for text in texts:
+        if not text:
+            continue
+        match = _MENTION_RE.search(text)
+        if match and _HANDLE_RE.match(match.group(1)):
+            return match.group(1).lower()
+    return None
